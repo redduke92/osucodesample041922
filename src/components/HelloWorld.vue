@@ -1,58 +1,96 @@
 <template>
-  <div class="hello">
-    <h1>{{ msg }}</h1>
-    <p>
-      For a guide and recipes on how to configure / customize this project,<br>
-      check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener">vue-cli documentation</a>.
-    </p>
-    <h3>Installed CLI Plugins</h3>
-    <ul>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-babel" target="_blank" rel="noopener">babel</a></li>
-      <li><a href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-eslint" target="_blank" rel="noopener">eslint</a></li>
-    </ul>
-    <h3>Essential Links</h3>
-    <ul>
-      <li><a href="https://vuejs.org" target="_blank" rel="noopener">Core Docs</a></li>
-      <li><a href="https://forum.vuejs.org" target="_blank" rel="noopener">Forum</a></li>
-      <li><a href="https://chat.vuejs.org" target="_blank" rel="noopener">Community Chat</a></li>
-      <li><a href="https://twitter.com/vuejs" target="_blank" rel="noopener">Twitter</a></li>
-      <li><a href="https://news.vuejs.org" target="_blank" rel="noopener">News</a></li>
-    </ul>
-    <h3>Ecosystem</h3>
-    <ul>
-      <li><a href="https://router.vuejs.org" target="_blank" rel="noopener">vue-router</a></li>
-      <li><a href="https://vuex.vuejs.org" target="_blank" rel="noopener">vuex</a></li>
-      <li><a href="https://github.com/vuejs/vue-devtools#vue-devtools" target="_blank" rel="noopener">vue-devtools</a></li>
-      <li><a href="https://vue-loader.vuejs.org" target="_blank" rel="noopener">vue-loader</a></li>
-      <li><a href="https://github.com/vuejs/awesome-vue" target="_blank" rel="noopener">awesome-vue</a></li>
-    </ul>
-  </div>
+    <div class="post">
+        <div v-if="loading" class="loading">
+            Loading... Please refresh once the ASP.NET backend has started. See <a href="https://aka.ms/jspsintegrationvue">https://aka.ms/jspsintegrationvue</a> for more details.
+        </div>
+
+        <div v-if="post" class="content">
+            <select v-if="filterOptions">
+                <option value="-1">Filter By Topic</option>
+                <option v-for="topic in filterOptions" :key="topic" :value="topic">{{ topic }}</option>
+            </select>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Aggregate Count</th>
+                        <th>Style</th>
+                        <th>Topic</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="blog in post" :key="blog.name">
+                        <td><router-link :to="{name : 'about', params: {title: blog.Name}}">{{ blog.Name }}</router-link></td>
+                        <td>{{ blog.AggregateCount }}</td>
+                        <td>{{ blog.Style }}</td>
+                        <td>{{ blog.Topic }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <router-view/>
 </template>
 
-<script>
-export default {
-  name: 'HelloWorld',
-  props: {
-    msg: String
-  }
-}
-</script>
+<script lang="ts">
+    import { defineComponent } from 'vue'
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped>
-h3 {
-  margin: 40px 0 0;
-}
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-li {
-  display: inline-block;
-  margin: 0 10px;
-}
-a {
-  color: #42b983;
-}
-</style>
+    type Blogs = {
+        Name: string,
+        AggregateCount: number,
+        Style: string,
+        Title: string,
+        ShortDescription: string,
+        AuthorName: string,
+        Topic: string,
+        PublishDate: string
+    }[];
+
+
+    interface Data {
+        loading: boolean,
+        post: null | Blogs,
+        filter: string,
+        filterOptions: null | Array<string>
+    }
+
+    export default defineComponent({
+        data(): Data {
+            return {
+                loading: false,
+                post: null,
+                filter: "",
+                filterOptions: null
+            };
+        },
+        created() {
+            // fetch the data when the view is created and the data is
+            // already being observed
+            this.fetchData();
+        },
+        watch: {
+            // call again the method if the route changes
+            '$route': 'fetchData'
+        },
+        methods: {
+            fetchData(): void {
+                this.post = null;
+                this.loading = true;
+
+                fetch('/api/blogcontent')
+                    .then(r => r.json())
+                    .then(json => {
+                        this.post = json as Blogs;
+                        this.loading = false;
+                        this.filterOptions = [...new Set(this.post.map(item => item.Topic))];
+                        return;
+                    });
+            },
+            filterListings(filter: string): void {
+                if (this.post != null) {
+                    this.post = this.post.filter((blog) => blog.Topic.match(filter))
+                }
+            }
+        },
+    });
+</script>
